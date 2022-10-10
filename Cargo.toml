@@ -1,0 +1,12 @@
+[package]
+name = "lizard2"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+confy = "0.5.0"
+gtk = "0.15.5"
+notify-rust = "4.5.10"
+serde = { version = "1.0.130", features = ["derive"] }
+serde_derive = "1.0.145"
+tray-item = "0.7.1"
