@@ -1,6 +1,6 @@
 # Lizard 🦎
 
-A reminder to take eye breaks.
+🦎 A reminder to take eye breaks.
 
 ## Usage
 
