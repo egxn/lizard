@@ -12,12 +12,21 @@ use std::process::Command;
 struct Asset;
 
 #[derive(Serialize, Deserialize)]
+#[serde(default)]
 struct MyConfig {
+    message: String,
     minutes: u64,
+    title: String,
 }
 
 impl ::std::default::Default for MyConfig {
-    fn default() -> Self { Self { minutes: 20 } }
+    fn default() -> Self {
+        Self {
+            message: "Time to take a break!".to_string(),
+            minutes: 20,
+            title: "Eyes break 🧐".to_string(),
+        }
+    }
 }
 
 fn get_icon_path() -> (PathBuf, PathBuf) {
@@ -44,14 +53,17 @@ fn minutes_item(time: u64, icon: char) -> gtk::MenuItem {
 
     minutes_box_item.add(&time_label);
     minutes_box_item.connect_activate(move |_| {
-        confy::store("lizard", None, MyConfig { minutes: time }).unwrap();
+        confy::store("lizard", None, MyConfig { 
+            minutes: time,
+            ..Default::default()
+        }).unwrap();
     });
 
     minutes_box_item
 }
 
 fn exit_item() -> gtk::MenuItem {
-    let item = gtk::MenuItem::with_label("🚪 Exit");
+    let item = gtk::MenuItem::with_label("🚪 Close");
     item.connect_activate(|_| gtk::main_quit());
     item
 }
@@ -111,18 +123,16 @@ fn main() -> Result<(), confy::ConfyError> {
 
     std::thread::spawn(move || {
         loop {
-            std::thread::sleep(std::time::Duration::from_secs(cfg.minutes * 60));
-            Notification::new()
-                .summary("Eyes break 🧐")
-                .body("Look at something 6mt away for at least 20 seconds")
+            std::thread::sleep(std::time::Duration::from_secs(&cfg.minutes * 60));
+            let notification = Notification::new()
+                .summary(&cfg.title)
+                .body(&cfg.message)
                 .icon(&icon_path.to_str().unwrap())
                 .urgency(notify_rust::Urgency::Critical)
                 .show()
-                .unwrap()
-                .wait_for_action(|action| match action {
-                    "__closed" => { println!("Notification closed"); },
-                    _ => ()
-                });
+                .unwrap();
+            std::thread::sleep(std::time::Duration::from_secs(20));
+            notification.close();
         }
     });
 
