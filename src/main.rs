@@ -1,4 +1,5 @@
-use gtk::{self, traits::{MenuShellExt, GtkMenuItemExt, WidgetExt, ContainerExt }, Label};
+use gtk::prelude::*;
+use gtk::{self, traits::{MenuShellExt, GtkMenuItemExt, WidgetExt, ContainerExt, DialogExt }, Label };
 use image::load_from_memory;
 use libappindicator::{AppIndicator, AppIndicatorStatus};
 use notify_rust::Notification;
@@ -62,6 +63,19 @@ fn minutes_item(time: u64, icon: char) -> gtk::MenuItem {
     minutes_box_item
 }
 
+fn config_item() -> gtk::MenuItem {
+    let config_item = gtk::MenuItem::with_label("🔧 Config");
+    config_item.connect_activate(|_| {
+        let dialog = dialog_config();
+        dialog.map(|dialog| {
+            dialog.show_all();
+            dialog.run();
+        }).expect("failed to run dialog");
+    });
+
+    config_item
+}
+
 fn exit_item() -> gtk::MenuItem {
     let item = gtk::MenuItem::with_label("🚪 Close");
     item.connect_activate(|_| gtk::main_quit());
@@ -82,7 +96,7 @@ fn turn_on_night_light() -> gtk::MenuItem {
 
 fn turn_off_night_light() -> gtk::MenuItem {
     let item = gtk::MenuItem::with_label("🤓 Normal Light");
-    item.connect_activate(|_| {        
+    item.connect_activate(|_| {
         Command::new("gsettings")
             .args(&["set", "org.gnome.settings-daemon.plugins.color", "night-light-enabled", "false"])
             .output()
@@ -92,17 +106,94 @@ fn turn_off_night_light() -> gtk::MenuItem {
     item
 }
 
+
+fn dialog_config() -> Result< gtk::Dialog, confy::ConfyError> {
+    let cfg: MyConfig = confy::load("lizard", None)?;
+    let dialog = gtk::Dialog::new();
+    dialog.set_title("Lizard Config");
+    dialog.set_modal(true);
+    dialog.set_default_size(300, 220);
+
+    let box_config = gtk::Box::new(gtk::Orientation::Vertical, 10);
+    let lbl_title = gtk::Label::new(Some("Title:"));
+    lbl_title.set_halign(gtk::Align::Start);
+    lbl_title.set_margin_start(10);
+    let entry_title = gtk::Entry::new();
+    entry_title.set_halign(gtk::Align::Start);
+    entry_title.set_margin_start(10);
+    entry_title.set_size_request(280, 20);
+    entry_title.set_text(&cfg.title);
+    let lbl_message = gtk::Label::new(Some("Message:"));
+    lbl_message.set_halign(gtk::Align::Start);
+    lbl_message.set_margin_start(10);
+    let entry_message = gtk::Entry::new();
+    entry_message.set_halign(gtk::Align::Start);
+    entry_message.set_margin_start(10);
+    entry_message.set_size_request(280, 20);
+    entry_message.set_text(&cfg.message);
+    let lbl_minutes = gtk::Label::new(Some("Minutes:"));
+    lbl_minutes.set_halign(gtk::Align::Start);
+    lbl_minutes.set_margin_start(10);
+    let entry_minutes = gtk::SpinButton::with_range(1.0, 60.0, 1.0);
+    entry_minutes.set_halign(gtk::Align::End);
+    entry_minutes.set_margin_start(10);
+    entry_minutes.set_value(cfg.minutes as f64);
+
+    let title = entry_title.text().to_string();
+    let message = entry_message.text().to_string();
+    let minutes = entry_minutes.value() as u64;
+
+    let title_for_minutes = title.clone();
+    let message_for_minutes = message.clone();
+
+    entry_message.connect_changed(move |entry| {
+        confy::store("lizard", None, MyConfig {
+            title: title.clone(),
+            message: entry.text().to_string(),
+            minutes: minutes,
+        }).unwrap();
+    });
+
+    entry_title.connect_changed(move |entry| {
+        confy::store("lizard", None, MyConfig {
+            title: entry.text().to_string(),
+            message: message.clone(),
+            minutes: minutes,
+        }).unwrap();
+    });
+
+    entry_minutes.connect_value_changed(move |entry| {
+        confy::store("lizard", None, MyConfig {
+            title: title_for_minutes.clone(),
+            message: message_for_minutes.clone(),
+            minutes: entry.value() as u64,
+        }).unwrap();
+    });
+
+    box_config.add(&lbl_title);
+    box_config.add(&entry_title);
+    box_config.add(&lbl_message);
+    box_config.add(&entry_message);
+    box_config.add(&lbl_minutes);
+    box_config.add(&entry_minutes);
+
+    dialog.content_area().add(&box_config);
+
+    Ok(dialog)
+}
+
 fn create_tray_icon() -> () {
     let (dir, _) = get_icon_path();
     copy_assets();
-    let exit = exit_item();
-    let mut menu = gtk::Menu::new();
-    menu.append(&minutes_item(15, '⌛'));
-    menu.append(&minutes_item(20, '⌛'));
-    menu.append(&minutes_item(30, '⏳'));
-    menu.append(&gtk::SeparatorMenuItem::new());
+    let exit: gtk::MenuItem = exit_item();
+    let mut menu: gtk::Menu = gtk::Menu::new();
     menu.append(&turn_on_night_light());
     menu.append(&turn_off_night_light());
+    menu.append(&gtk::SeparatorMenuItem::new());
+    menu.append(&minutes_item(15 , '⏳'));
+    menu.append(&minutes_item(20 , '⌛'));
+    menu.append(&gtk::SeparatorMenuItem::new());
+    menu.append(&config_item());
     menu.append(&gtk::SeparatorMenuItem::new());
     menu.append(&exit);
     menu.show_all();
@@ -115,7 +206,7 @@ fn create_tray_icon() -> () {
 }
 
 fn main() -> Result<(), confy::ConfyError> {
-    let cfg: MyConfig = confy::load("lizard", None)?;    
+    let cfg: MyConfig = confy::load("lizard", None)?;
 
     gtk::init().unwrap();
     create_tray_icon();
