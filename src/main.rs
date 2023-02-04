@@ -206,14 +206,13 @@ fn create_tray_icon() -> () {
 }
 
 fn main() -> Result<(), confy::ConfyError> {
-    let cfg: MyConfig = confy::load("lizard", None)?;
-
     gtk::init().unwrap();
     create_tray_icon();
     let (_, icon_path) = get_icon_path();
 
     std::thread::spawn(move || {
         loop {
+            let cfg: MyConfig = confy::load("lizard", None).unwrap();
             std::thread::sleep(std::time::Duration::from_secs(&cfg.minutes * 60));
             let notification = Notification::new()
                 .summary(&cfg.title)
